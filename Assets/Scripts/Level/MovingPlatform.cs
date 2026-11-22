@@ -14,7 +14,21 @@ public class MovingPlatform : MonoBehaviour
 
     float MyMoveTowards(float current, float target, float maxDelta)
     {
-        // TODO
-        return current;
+        //distancia que falta
+        float distance = target - current;
+        float direction = target - current;
+        //llegamos en este frame?
+        if (distance <= maxDelta)
+        {
+            return target;
+        }
+        if (direction < 0)
+        {
+            return current - maxDelta;
+        }
+        else
+        {
+            return current + maxDelta;
+        }
     }
 }
