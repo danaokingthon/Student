@@ -9,11 +9,33 @@ public class Respawner : MonoBehaviour
 
     void OnEnable()
     {
-        // TODO
+        GameEvents.OnTargetDestroyed += RespawnGem;
     }
 
     void OnDisable()
     {
-        // TODO
+        GameEvents.OnTargetDestroyed -= RespawnGem;
+    }
+
+    //Recibe evento cuando destruye un objeto
+    void RespawnGem(GameItem gameItem)
+    {
+        //Comprueba que sea gema
+        if (gameItem == GameItem.Gem)
+        {
+            StartCoroutine(RespawnGemCoroutine());
+        }
+    }
+
+    //Espera y crea nueva gema
+    IEnumerator RespawnGemCoroutine()
+    {
+        yield return new WaitForSeconds(respawnDelay);
+
+        Instantiate(
+            gemPrefab,
+            spawnPoint.position,
+            spawnPoint.rotation
+        );
     }
 }
