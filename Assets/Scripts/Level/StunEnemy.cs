@@ -2,5 +2,13 @@ using UnityEngine;
 
 public class StunEnemy : MonoBehaviour
 {
-    // TODO
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        PlayerPhysics player = collision.gameObject.GetComponent<PlayerPhysics>();
+
+        if (player != null)
+        {
+            player.Stun();
+        }
+    }
 }

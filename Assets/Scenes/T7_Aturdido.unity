@@ -412,6 +412,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5454773291985334764, guid: b636e4a72f84949a3bf9ae183b014b04, type: 3}
+      propertyPath: m_IsTrigger
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5454773291985334764, guid: b636e4a72f84949a3bf9ae183b014b04, type: 3}
+      propertyPath: m_AutoTiling
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6534413166254138759, guid: b636e4a72f84949a3bf9ae183b014b04, type: 3}
       propertyPath: m_Name
       value: StunEnemy
@@ -653,6 +661,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 133995975177339279, guid: 09f0d717829754d7ab751545e825c51b, type: 3}
   m_PrefabInstance: {fileID: 1131403300}
   m_PrefabAsset: {fileID: 0}
+--- !u!212 &1415533143 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 3950703462456285331, guid: ca0c6782a16da4cd2924d3e339d844f6, type: 3}
+  m_PrefabInstance: {fileID: 2072985742}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2072985742
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -701,6 +714,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7186871237607696004, guid: ca0c6782a16da4cd2924d3e339d844f6, type: 3}
+      propertyPath: spriteRenderer
+      value: 
+      objectReference: {fileID: 1415533143}
     - target: {fileID: 9101311171110458395, guid: ca0c6782a16da4cd2924d3e339d844f6, type: 3}
       propertyPath: m_Name
       value: Player

@@ -1,4 +1,6 @@
+
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,6 +12,7 @@ public enum PlayerState
     Jumping,
     Firing,
     Hurt,
+    Stunned
 }
 
 [RequireComponent(typeof(Rigidbody2D))]
@@ -20,17 +23,27 @@ public class PlayerPhysics : MonoBehaviour
     [SerializeField] Rigidbody2D rigidBody2D;
     [SerializeField] float jumpSpeed;
     [SerializeField] float hurtJumpSpeed;
+
     [Header("Grounded")]
     [SerializeField] Vector2 groundCheckOffset;
     [SerializeField] Vector2 groundCheckSize;
     [SerializeField] LayerMask groundMask;
+
     [Header("Inputs")]
     [SerializeField] InputActionReference moveInput;
     [SerializeField] InputActionReference jumpInput;
     [SerializeField] InputActionReference fireInput;
+
     [Header("Bullet")]
     [SerializeField] Transform bulletSpawner;
     [SerializeField] Bullet bulletPrefab;
+
+    [Header("Stun")]
+    [SerializeField] SpriteRenderer spriteRenderer;
+    [SerializeField] float stunDuration = 1f;
+
+    Color originalColor;
+    Coroutine stunCoroutine;
 
     float horizontalSpeed;
     Vector2 velocity;
@@ -48,26 +61,119 @@ public class PlayerPhysics : MonoBehaviour
     State jumpingState;
     State firingState;
     State hurtState;
+    State stunnedState;
 
     void Awake()
     {
         initialGravity = rigidBody2D.gravityScale;
         direction = 1;
-        bulletSpawnerInitialPosition = bulletSpawner.localPosition;
 
-        idleState = CreateState(PlayerState.Idle, IdleEnter, IdleUpdate, IdleExit);
-        movementState = CreateState(PlayerState.GroundedMovement, MovementEnter, MovementUpdate, MovementExit);
-        jumpingState = CreateState(PlayerState.Jumping, JumpEnter, JumpUpdate, JumpExit);
-        firingState = CreateState(PlayerState.Firing, FiringEnter, null, null);
-        hurtState = CreateState(PlayerState.Hurt, HurtEnter, null, HurtExit);
+        bulletSpawnerInitialPosition = bulletSpawner.localPosition;
+        originalColor = spriteRenderer.color;
+
+        idleState = CreateState(
+            PlayerState.Idle,
+            IdleEnter,
+            IdleUpdate,
+            IdleExit
+        );
+
+        movementState = CreateState(
+            PlayerState.GroundedMovement,
+            MovementEnter,
+            MovementUpdate,
+            MovementExit
+        );
+
+        jumpingState = CreateState(
+            PlayerState.Jumping,
+            JumpEnter,
+            JumpUpdate,
+            JumpExit
+        );
+
+        firingState = CreateState(
+            PlayerState.Firing,
+            FiringEnter,
+            null,
+            null
+        );
+
+        hurtState = CreateState(
+            PlayerState.Hurt,
+            HurtEnter,
+            null,
+            HurtExit
+        );
+
+        stunnedState = CreateState(
+            PlayerState.Stunned,
+            StunnedEnter,
+            null,
+            StunnedExit
+        );
 
         stateMachine = new StateMachine();
+
         stateMachine.AddState(idleState);
         stateMachine.AddState(movementState);
         stateMachine.AddState(jumpingState);
         stateMachine.AddState(firingState);
         stateMachine.AddState(hurtState);
+        stateMachine.AddState(stunnedState);
     }
+
+    // STUNNED
+
+    void StunnedEnter()
+    {
+        horizontalSpeed = 0f;
+        velocity = Vector2.zero;
+        rigidBody2D.linearVelocity = Vector2.zero;
+
+        spriteRenderer.color = Color.yellow;
+
+        stunCoroutine = StartCoroutine(StunTimer());
+    }
+
+    IEnumerator StunTimer()
+    {
+        yield return new WaitForSeconds(stunDuration);
+
+        stunCoroutine = null;
+
+        ChangeState(PlayerState.Idle);
+    }
+
+    void StunnedExit()
+    {
+        if (stunCoroutine != null)
+        {
+            StopCoroutine(stunCoroutine);
+            stunCoroutine = null;
+        }
+
+        spriteRenderer.color = originalColor;
+    }
+
+    public void Stun()
+    {
+        if (stateMachine.CurrentState == PlayerState.Stunned.ToString())
+        {
+            if (stunCoroutine != null)
+            {
+                StopCoroutine(stunCoroutine);
+            }
+
+            stunCoroutine = StartCoroutine(StunTimer());
+        }
+        else
+        {
+            ChangeState(PlayerState.Stunned);
+        }
+    }
+
+    // STATE MACHINE
 
     void OnEnable()
     {
@@ -76,12 +182,23 @@ public class PlayerPhysics : MonoBehaviour
 
     void OnDisable()
     {
+        if (stunCoroutine != null)
+        {
+            StopCoroutine(stunCoroutine);
+            stunCoroutine = null;
+        }
+
         stateMachine.Stop();
     }
 
-    State CreateState(PlayerState playerState, Action onEnter, Action onUpdate, Action onExit)
+    State CreateState(
+        PlayerState playerState,
+        Action onEnter,
+        Action onUpdate,
+        Action onExit)
     {
         var state = new State(playerState.ToString());
+
         state.OnEnter += onEnter;
         state.OnUpdate += onUpdate;
         state.OnExit += onExit;
@@ -100,23 +217,23 @@ public class PlayerPhysics : MonoBehaviour
         ChangeState(PlayerState.Hurt);
     }
 
+    // IDLE
+
     void IdleEnter()
     {
         moveInput.action.started += StartMoveHandler;
-
         jumpInput.action.started += JumpStartedHandler;
-
         fireInput.action.started += BulletFiredHandler;
     }
 
     void IdleUpdate()
     {
-        horizontalSpeed = 0.0f;
+        horizontalSpeed = 0f;
         velocity = Vector2.zero;
 
-        // The move key may already be held when we arrive here (after landing or firing)
         Vector2 moveVector = moveInput.action.ReadValue<Vector2>();
-        if (moveVector.x != 0.0f)
+
+        if (moveVector.x != 0f)
         {
             ChangeState(PlayerState.GroundedMovement);
         }
@@ -125,11 +242,11 @@ public class PlayerPhysics : MonoBehaviour
     void IdleExit()
     {
         moveInput.action.started -= StartMoveHandler;
-
         jumpInput.action.started -= JumpStartedHandler;
-
         fireInput.action.started -= BulletFiredHandler;
     }
+
+    // MOVEMENT
 
     void MovementEnter()
     {
@@ -154,6 +271,8 @@ public class PlayerPhysics : MonoBehaviour
         jumpInput.action.started -= JumpStartedHandler;
     }
 
+    // JUMPING
+
     void JumpEnter()
     {
         moveInput.action.performed += PerformedMoveHandler;
@@ -162,6 +281,7 @@ public class PlayerPhysics : MonoBehaviour
         jumpInput.action.canceled += JumpReleasedHandler;
 
         ReadMoveInput();
+
         velocity.y = jumpSpeed;
         canJump = true;
     }
@@ -178,25 +298,34 @@ public class PlayerPhysics : MonoBehaviour
 
         jumpInput.action.canceled -= JumpReleasedHandler;
 
-        velocity.y = 0.0f;
+        velocity.y = 0f;
         canJump = false;
     }
 
+    // FIRING
+
     void FiringEnter()
     {
-        var bullet = Instantiate(bulletPrefab,
+        var bullet = Instantiate(
+            bulletPrefab,
             bulletSpawner.position,
-            Quaternion.identity);
+            Quaternion.identity
+        );
+
         bullet.SetDirection(direction);
 
         ChangeState(PlayerState.Idle);
     }
 
+    // HURT
+
     void HurtEnter()
     {
-        horizontalSpeed = 0.0f;
+        horizontalSpeed = 0f;
+
         velocity = knockbackVelocity;
         velocity.y += hurtJumpSpeed;
+
         canJump = true;
     }
 
@@ -206,9 +335,12 @@ public class PlayerPhysics : MonoBehaviour
         canJump = false;
     }
 
+    // MOVEMENT INPUT
+
     void ReadMoveInput()
     {
         Vector2 moveVector = moveInput.action.ReadValue<Vector2>();
+
         horizontalSpeed = moveVector.x * speed;
     }
 
@@ -226,7 +358,10 @@ public class PlayerPhysics : MonoBehaviour
         }
 
         var bulletSpawnerPosition = bulletSpawner.localPosition;
-        bulletSpawnerPosition.x = direction * bulletSpawnerInitialPosition.x;
+
+        bulletSpawnerPosition.x =
+            direction * bulletSpawnerInitialPosition.x;
+
         bulletSpawner.localPosition = bulletSpawnerPosition;
     }
 
@@ -238,14 +373,16 @@ public class PlayerPhysics : MonoBehaviour
     void PerformedMoveHandler(InputAction.CallbackContext ctx)
     {
         var moveVector = ctx.ReadValue<Vector2>();
+
         horizontalSpeed = moveVector.x * speed;
     }
 
     void CanceledMoveHandler(InputAction.CallbackContext ctx)
     {
-        horizontalSpeed = 0.0f;
+        horizontalSpeed = 0f;
 
-        if (stateMachine.CurrentState == PlayerState.GroundedMovement.ToString())
+        if (stateMachine.CurrentState ==
+            PlayerState.GroundedMovement.ToString())
         {
             ChangeState(PlayerState.Idle);
         }
@@ -261,9 +398,9 @@ public class PlayerPhysics : MonoBehaviour
 
     void JumpReleasedHandler(InputAction.CallbackContext ctx)
     {
-        if (rigidBody2D.linearVelocityY > 0.0f)
+        if (rigidBody2D.linearVelocityY > 0f)
         {
-            velocity.y = 0.0f;
+            velocity.y = 0f;
             canJump = true;
         }
     }
@@ -273,6 +410,8 @@ public class PlayerPhysics : MonoBehaviour
         ChangeState(PlayerState.Firing);
     }
 
+    // UPDATE
+
     void Update()
     {
         stateMachine.UpdateState();
@@ -281,6 +420,13 @@ public class PlayerPhysics : MonoBehaviour
     void FixedUpdate()
     {
         rigidBody2D.gravityScale = initialGravity * gravityModifier;
+
+        if (stateMachine.CurrentState == PlayerState.Stunned.ToString())
+        {
+            rigidBody2D.linearVelocity = Vector2.zero;
+            return;
+        }
+
         rigidBody2D.linearVelocityX = velocity.x;
 
         CheckJumping();
@@ -301,21 +447,29 @@ public class PlayerPhysics : MonoBehaviour
         Collider2D colliderDetected = Physics2D.OverlapBox(
             rigidBody2D.position + groundCheckOffset,
             groundCheckSize,
-            0.0f,
-            groundMask);
+            0f,
+            groundMask
+        );
+
         bool currentGroundedState = colliderDetected != null;
-        if (currentGroundedState && !isGrounded)
+
+        if (currentGroundedState &&
+            !isGrounded &&
+            stateMachine.CurrentState != PlayerState.Stunned.ToString())
         {
             ChangeState(PlayerState.Idle);
         }
+
         isGrounded = currentGroundedState;
     }
 
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
+
         Gizmos.DrawWireCube(
             rigidBody2D.position + groundCheckOffset,
-            groundCheckSize);
+            groundCheckSize
+        );
     }
 }
